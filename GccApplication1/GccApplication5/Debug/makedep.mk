@@ -4,5 +4,3 @@
 
 main.c
 
-MyLib.c
-

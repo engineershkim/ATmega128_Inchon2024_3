@@ -9,10 +9,12 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+
 #define DDR DDRG
 #define PORT PORTG
-#define LED PORTG1
-
+#define LED0 PORTG0
+#define LED1 PORTG1
+#define LED2 PORTG2
 
 int cnt = 0, cnt1 = 0, cntEx = 5, st = 0; // 초기값 : 500ms
 ISR(TIMER0_OVF_vect)
@@ -26,8 +28,27 @@ ISR(TIMER0_OVF_vect)
 		cnt1++;
 		
 		if(cnt1 > cntEx){
-			if(st){ PORTG &= ~_BV(LED); st = 0; }
-			else{ PORTG |= _BV(LED); st = 1; }
+			if(st){ PORTG &= ~_BV(LED0); st = 0; }
+			else{ PORTG |= _BV(LED0); st = 1; }
+		}
+	}
+}
+
+int ocnt = 0, ocnt1 = 0, ocntEx = 5, ost = 0; // 초기값 : 500ms
+ISR(TIMER0_COMP_vect)
+{
+	ocnt++;
+	
+	if(cnt > 25) // (1/16M) * 256 * 256 * 25 = 0.192 sec == 100ms
+	{
+		
+		ocnt = 0;
+		ocnt1++;
+		
+		if(ocnt1 > ocntEx){
+			if(ost){ PORTG &= ~_BV(LED1); ost = 0; }
+			else{ PORTG |= _BV(LED2); ost = 1; }
+			TCNT0 = 0;
 		}
 	}
 }
@@ -42,42 +63,26 @@ ISR(INT1_vect) // faster
 	if(cntEx <1 ) cntEx =1;
 }
 
-int TestBit(char *pin, char mask) // PINx 레지스터의 값의 mask bit가 0인지 1인지 판별
-{
-	if((*pin & mask) != 0) return 1;
-	return 0;
-}
-
-
-void StandBy(){
-	DDR &= ~0x10; // PG4 : 입력으로 설정
-	PORT |= 0x10; // PG4 : Pull-up
-
-	//while((PING & (1<<SW1)) == 0); // PING0의 초기값이 1(open)임을 가정 //  전원이 켜지고 활성화 될때(pull-up (1))이 될떄까지 대기
-	while(1)
-	{
-		if(TestBit(PING, 0x10)) break;
-	}
-	while(1)
-	{
-		if(!TestBit(PING, 0x10)) break;
-	}
-	
-}
-
 
 int main(void)
 {
-	DDR |= _BV(LED);
-	PORT |= _BV(LED);
+	DDR |= _BV(LED0) | _BV(LED1) | _BV(LED2);
+	PORT |= _BV(LED0);
 	StandBy();
-	PORT &= ~_BV(LED);
+	PORT &= ~_BV(LED0);
 	// Timer Interrupt 0 설정
 	TIMSK |= 0x01;
 	TCCR0 |= 0x06; //  110 : 256, 111 : 1024 분주비 1024
 	// Timer Interrupt 1 설정
-	TIMSK |= 0x02; // TOIE2
-	TCCR0 |= 0x06; //  110 : 256, 111 : 1024 분주비 1024
+	//TIMSK |= 0x02; // TOIE2
+	//TCCR0 |= 0x06; //  110 : 256, 111 : 1024 분주비 1024
+	
+	OCR0 = 128;
+	TIMSK |= 0x02; // OCIE0
+	//External Interrupt 설정
+	EIMSK |= 0x03;
+	EICRA |= 0x0F;
+	sei();
 	
     /* Replace with your application code */
     while (1) 
